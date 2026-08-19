@@ -1,115 +1,226 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CP Field Logger</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { background-color: #f4f7f6; }
-    .history-box { background: #e8f4fd; border-left: 4px solid #0d6efd; padding: 12px; margin-bottom: 20px; display: none; font-size: 0.85rem; }
-    .section-title { font-weight: bold; color: #333; margin-top: 15px; margin-bottom: 5px; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>บันทึกข้อมูล Cathodic Protection</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
-<body class="p-3">
-  <div class="container" style="max-width: 500px;">
-    <div id="historyContainer" class="history-box">
-      <div class="d-flex justify-content-between mb-2">
-        <button class="btn btn-sm btn-outline-primary" onclick="navigateHistory(1)">« ก่อนหน้า</button>
-        <span id="his-index" class="fw-bold">1 / 1</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="navigateHistory(-1)">ถัดไป »</button>
-      </div>
-      <div>วันที่: <span id="his-time" class="fw-bold"></span></div>
-      <div class="row g-1">
-        <div class="col-6">Von PTT: <span id="his-von_ptt" class="fw-bold"></span></div>
-        <div class="col-6">Voff PTT: <span id="his-voff_ptt" class="fw-bold"></span></div>
-        <div class="col-12">Foreign: <span id="his-foreign" class="fw-bold"></span></div>
-        <div class="col-6">Von F: <span id="his-von_foreign" class="fw-bold"></span></div>
-        <div class="col-6">Voff F: <span id="his-voff_foreign" class="fw-bold"></span></div>
-        <div class="col-12">Resistor: <span id="his-resistor" class="fw-bold"></span></div>
-      </div>
-    </div>
+<body class="bg-light">
+  <div class="container py-4" style="max-width: 600px;">
+    <div class="card shadow-sm">
+      <div class="card-header bg-primary text-white text-center">
+        <h4>บันทึกข้อมูล Cathodic Protection</h4>
+      </div>
+      <div class="card-body">
+        
+        <!-- ส่วนสแกน QR Code แบบกล้องสด -->
+        <div class="mb-3 text-center">
+          <label class="form-label fw-bold">1. สแกน QR Code จุดวัด</label>
+          <div id="reader" style="width: 100%;"></div>
+          <button type="button" class="btn btn-outline-secondary btn-sm mt-2 w-100" id="btn-rescan" style="display:none;" onclick="startScanner()">สแกนใหม่อีกครั้ง</button>
+        </div>
 
-    <form id="cpForm">
-      <div class="section-title">ข้อมูลจุดวัด</div>
-      <input type="text" class="form-control mb-2" id="nick_name" placeholder="Nick Name" onblur="fetchPreviousDataJSONP(this.value)">
-      
-      <div class="section-title">บันทึกค่าการวัด</div>
-      <select class="form-select mb-2" id="type"><option value="Direct">Direct</option><option value="No Bond">No Bond</option></select>
-      <input type="number" class="form-control mb-2" id="von_ptt" placeholder="Von PTT" step="any">
-      <input type="number" class="form-control mb-2" id="voff_ptt" placeholder="Voff PTT" step="any">
-      <input type="text" class="form-control mb-2" id="foreign_pipe" placeholder="Foreign Pipe">
-      <input type="number" class="form-control mb-2" id="von_foreign" placeholder="Von Foreign" step="any">
-      <input type="number" class="form-control mb-2" id="voff_foreign" placeholder="Voff Foreign" step="any">
-      <input type="number" class="form-control mb-2" id="current_adc" placeholder="Current ADC" step="any">
-      <input type="number" class="form-control mb-2" id="current_aac" placeholder="Current AAC" step="any">
-      <input type="text" class="form-control mb-2" id="resistor" placeholder="Resistor">
-      <textarea class="form-control mb-2" id="remark" placeholder="หมายเหตุ"></textarea>
-      
-      <button type="button" class="btn btn-success w-100" onclick="submitData()">บันทึกข้อมูล</button>
-    </form>
-  </div>
+        <form id="cpForm" onsubmit="submitForm(event)">
+          <div class="mb-3">
+            <label class="form-label">Division</label>
+            <input type="text" class="form-control" id="division" required readonly placeholder="จากการสแกน QR Code">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Asset Owner</label>
+            <input type="text" class="form-control" id="asset_owner" readonly placeholder="จากการสแกน QR Code">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Route Code</label>
+            <input type="text" class="form-control" id="route_code" readonly placeholder="จากการสแกน QR Code">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Route Name</label>
+            <input type="text" class="form-control" id="route_name" readonly placeholder="จากการสแกน QR Code">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pipeline Name</label>
+            <input type="text" class="form-control" id="pipeline_name" readonly placeholder="จากการสแกน QR Code">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nick Name</label>
+            <input type="text" class="form-control" id="nick_name" readonly placeholder="จากการสแกน QR Code">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Bond Box KP</label>
+            <input type="text" class="form-control" id="bondbox_kp" readonly placeholder="จากการสแกน QR Code">
+          </div>
 
-  <script>
-    // --- เปลี่ยน URL ตรงนี้เป็น URL ที่ได้จากการ Deploy ---
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFWOdcGjV8iKgy2UiWTDvf8xc3uEoolyVK9nC_MoP-BbEFOKM6YW8wFpwNnwxIP3Ii/exec"; 
-    // ---------------------------------------------------
+          <div class="mb-3">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="type">
+              <option value="">-- เลือกประเภท --</option>
+              <option value="Direct">Direct</option>
+              <option value="No Bond">No Bond</option>
+              <option value="Resistor">Resistor</option>
+            </select>
+          </div>
+          
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Von PTT (Vdc)</label>
+              <input type="number" step="any" class="form-control" id="von_ptt">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Voff PTT (Vdc)</label>
+              <input type="number" step="any" class="form-control" id="voff_ptt">
+            </div>
+          </div>
 
-    let historyData = [];
-    let currentIndex = 0;
+          <div class="mb-3">
+            <label class="form-label">Foreign Pipe (ระบุชื่อ)</label>
+            <input type="text" class="form-control" id="foreign_pipe" placeholder="ระบุชื่อ Foreign">
+          </div>
 
-    function fetchPreviousDataJSONP(nickName) {
-      if(!nickName) return;
-      let script = document.createElement('script');
-      script.src = `${WEB_APP_URL}?nick_name=${encodeURIComponent(nickName)}&callback=showHistoryData`;
-      document.body.appendChild(script);
-    }
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Von Foreign (Vdc)</label>
+              <input type="number" step="any" class="form-control" id="von_foreign">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">Voff Foreign (Vdc)</label>
+              <input type="number" step="any" class="form-control" id="voff_foreign">
+            </div>
+          </div>
 
-    function showHistoryData(data) {
-      historyData = data;
-      currentIndex = 0;
-      if(historyData.length > 0) {
-        document.getElementById('historyContainer').style.display = 'block';
-        updateDisplay();
-      }
-    }
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">I (Adc)</label>
+              <input type="number" step="any" class="form-control" id="current_adc">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">I (Aac)</label>
+              <input type="number" step="any" class="form-control" id="current_aac">
+            </div>
+          </div>
 
-    function updateDisplay() {
-      let d = historyData[currentIndex];
-      document.getElementById('his-time').innerText = d.timestamp;
-      document.getElementById('his-von_ptt').innerText = d.von_ptt;
-      document.getElementById('his-voff_ptt').innerText = d.voff_ptt;
-      document.getElementById('his-foreign').innerText = d.foreign_pipe;
-      document.getElementById('his-von_foreign').innerText = d.von_foreign;
-      document.getElementById('his-voff_foreign').innerText = d.voff_foreign;
-      document.getElementById('his-resistor').innerText = d.resistor;
-      document.getElementById('his-index').innerText = (currentIndex + 1) + " / " + historyData.length;
-    }
+          <div class="mb-3">
+            <label class="form-label">Direction</label>
+            <div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="direction" id="dir_in" value="in">
+                <label class="form-check-label" for="dir_in">in</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="direction" id="dir_out" value="out">
+                <label class="form-check-label" for="dir_out">out</label>
+              </div>
+            </div>
+          </div>
 
-    function navigateHistory(step) {
-      currentIndex = Math.max(0, Math.min(historyData.length - 1, currentIndex + step));
-      updateDisplay();
-    }
+          <div class="mb-3">
+            <label class="form-label">Resistor (Ohm)</label>
+            <input type="text" class="form-control" id="resistor" placeholder="เช่น 30w/5">
+          </div>
 
-    function submitData() {
-      let payload = {
-        nick_name: document.getElementById('nick_name').value,
-        type: document.getElementById('type').value,
-        von_ptt: document.getElementById('von_ptt').value,
-        voff_ptt: document.getElementById('voff_ptt').value,
-        foreign_pipe: document.getElementById('foreign_pipe').value,
-        von_foreign: document.getElementById('von_foreign').value,
-        voff_foreign: document.getElementById('voff_foreign').value,
-        current_adc: document.getElementById('current_adc').value,
-        current_aac: document.getElementById('current_aac').value,
-        resistor: document.getElementById('resistor').value,
-        remark: document.getElementById('remark').value
-      };
-      
-      fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
-        .then(res => res.text())
-        .then(() => alert("บันทึกข้อมูลเรียบร้อย!"));
-    }
-  </script>
+          <div class="mb-3">
+            <label class="form-label">Remark (หมายเหตุ)</label>
+            <textarea class="form-control" id="remark" rows="2"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 py-2" id="submitBtn">บันทึกข้อมูล</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let html5QrcodeScanner;
+
+    function onScanSuccess(decodedText, decodedResult) {
+      // รูปแบบข้อมูลใน QR Code จะต้องเรียงตามลำดับคั่นด้วยเครื่องหมาย |
+      // ตัวอย่าง: Division|AssetOwner|RouteCode|RouteName|PipelineName|NickName|BondBoxKP
+      let arr = decodedText.split('|');
+      
+      document.getElementById('division').value = arr[0] || '';
+      document.getElementById('asset_owner').value = arr[1] || '';
+      document.getElementById('route_code').value = arr[2] || '';
+      document.getElementById('route_name').value = arr[3] || '';
+      document.getElementById('pipeline_name').value = arr[4] || '';
+      document.getElementById('nick_name').value = arr[5] || '';
+      document.getElementById('bondbox_kp').value = arr[6] || '';
+      
+      html5QrcodeScanner.clear().then(_ => {
+        document.getElementById('btn-rescan').style.display = 'block';
+      }).catch(error => {
+        console.error("Failed to clear scanner. ", error);
+      });
+    }
+
+    function startScanner() {
+      document.getElementById('btn-rescan').style.display = 'none';
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", { fps: 10, qrbox: { width: 250, height: 250 } });
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    window.onload = function() {
+      startScanner();
+    };
+
+    function submitForm(e) {
+      e.preventDefault();
+      
+      let selectedDir = document.querySelector('input[name="direction"]:checked');
+
+      let data = {
+        division: document.getElementById('division').value,
+        asset_owner: document.getElementById('asset_owner').value,
+        route_code: document.getElementById('route_code').value,
+        route_name: document.getElementById('route_name').value,
+        pipeline_name: document.getElementById('pipeline_name').value,
+        nick_name: document.getElementById('nick_name').value,
+        bondbox_kp: document.getElementById('bondbox_kp').value,
+        type: document.getElementById('type').value,
+        von_ptt: document.getElementById('von_ptt').value,
+        voff_ptt: document.getElementById('voff_ptt').value,
+        foreign_pipe: document.getElementById('foreign_pipe').value, // เพิ่มบรรทัดนี้
+        von_foreign: document.getElementById('von_foreign').value,
+        voff_foreign: document.getElementById('voff_foreign').value,
+        current_adc: document.getElementById('current_adc').value,
+        current_aac: document.getElementById('current_aac').value,
+        direction: selectedDir ? selectedDir.value : '',
+        resistor: document.getElementById('resistor').value,
+        remark: document.getElementById('remark').value
+      };
+
+      if(!data.division) {
+        alert('กรุณาสแกน QR Code ก่อนบันทึกข้อมูล');
+        return;
+      }
+
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').innerText = 'กำลังบันทึก...';
+
+      const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyqkrfi4Y0FzGhRXkCWtQdZPMeZYERDkz9jrjUtqQumO4Zwqv_lJdhSDtUvxhkYpb18/exec";
+
+      fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        alert('บันทึกข้อมูลสำเร็จ!');
+        document.getElementById('cpForm').reset();
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitBtn').innerText = 'บันทึกข้อมูล';
+        startScanner();
+      })
+      .catch(error => {
+        alert('เกิดข้อผิดพลาด: ' + error);
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitBtn').innerText = 'บันทึกข้อมูล';
+      });
+    }
+  </script>
 </body>
 </html>
+
+ถูกมั้ย
