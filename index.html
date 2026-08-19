@@ -79,7 +79,6 @@
               <input type="text" class="form-control form-control-sm bg-light" id="bondbox_kp" readonly>
             </div>
           </div>
-          <!-- ซ่อนช่องนี้ไว้เพื่อส่งค่า Route Code/Name เข้า Apps Script ตามเดิม -->
           <input type="hidden" id="route_code">
           <input type="hidden" id="route_name">
 
@@ -168,7 +167,7 @@
 
   <script>
     let html5QrcodeScanner;
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw5W5T6R3N-7eI8VPT90OylFu92poYFoZNVjyZJEsXdEX6_Mw8FzPNViX_m9QtzdMw6/exec";
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwyhy7JaCliqWEac_hPYBh0km_VrttwepQL6Vtu393vbgw8PdiFaZ8ChzqtOE7zHF5O/exec";
 
     function onScanSuccess(decodedText, decodedResult) {
       let arr = decodedText.split('|');
@@ -190,42 +189,47 @@
       document.getElementById('nick_name').value = nickName;
       document.getElementById('bondbox_kp').value = bondboxKp;
       
-      // หยุดกล้องและแสดงปุ่มสแกนใหม่
       html5QrcodeScanner.clear().then(_ => {
         document.getElementById('btn-rescan').style.display = 'block';
       }).catch(error => {
         console.error("Failed to clear scanner. ", error);
       });
 
-      // ดึงข้อมูลครั้งก่อนมาแสดงเทียบ
-      fetchPreviousData(nickName);
+      // ดึงข้อมูลครั้งก่อนด้วยเทคนิค JSONP (ทะลุ CORS)
+      fetchPreviousDataJSONP(nickName);
     }
 
-    function fetchPreviousData(nickName) {
+    // ฟังก์ชัน JSONP ดึงค่าเก่าแบบไร้ปัญหา CORS
+    function fetchPreviousDataJSONP(nickName) {
       if(!nickName) return;
-      fetch(`${WEB_APP_URL}?nick_name=${encodeURIComponent(nickName)}`)
-        .then(response => response.json())
-        .then(data => {
-          if(data && data.timestamp) {
-            document.getElementById('his-time').innerText = data.timestamp;
-            document.getElementById('his-type').innerText = data.type || '-';
-            document.getElementById('his-von_ptt').innerText = data.von_ptt !== "" ? data.von_ptt : '-';
-            document.getElementById('his-voff_ptt').innerText = data.voff_ptt !== "" ? data.voff_ptt : '-';
-            document.getElementById('his-foreign').innerText = data.foreign_pipe || '-';
-            document.getElementById('his-von_f').innerText = data.von_foreign !== "" ? data.von_foreign : '-';
-            document.getElementById('his-voff_f').innerText = data.voff_foreign !== "" ? data.voff_foreign : '-';
-            document.getElementById('his-adc').innerText = data.current_adc !== "" ? data.current_adc : '-';
-            document.getElementById('his-aac').innerText = data.current_aac !== "" ? data.current_aac : '-';
-            
-            document.getElementById('historyContainer').style.display = 'block';
-          } else {
-            document.getElementById('historyContainer').style.display = 'none';
-          }
-        })
-        .catch(err => {
-          console.log("Could not fetch history: ", err);
-          document.getElementById('historyContainer').style.display = 'none';
-        });
+      
+      // ลบ script เก่าทิ้งก่อนถ้ามี
+      let oldScript = document.getElementById('jsonpScript');
+      if (oldScript) oldScript.remove();
+
+      let script = document.createElement('script');
+      script.id = 'jsonpScript';
+      script.src = `${WEB_APP_URL}?nick_name=${encodeURIComponent(nickName)}&callback=showHistoryData`;
+      document.body.appendChild(script);
+    }
+
+    // ฟังก์ชันรับข้อมูลที่ Apps Script ส่งกลับมาแสดงผล
+    function showHistoryData(data) {
+      if(data && data.timestamp) {
+        document.getElementById('his-time').innerText = data.timestamp;
+        document.getElementById('his-type').innerText = data.type || '-';
+        document.getElementById('his-von_ptt').innerText = data.von_ptt !== "" ? data.von_ptt : '-';
+        document.getElementById('his-voff_ptt').innerText = data.voff_ptt !== "" ? data.voff_ptt : '-';
+        document.getElementById('his-foreign').innerText = data.foreign_pipe || '-';
+        document.getElementById('his-von_f').innerText = data.von_foreign !== "" ? data.von_foreign : '-';
+        document.getElementById('his-voff_f').innerText = data.voff_foreign !== "" ? data.voff_foreign : '-';
+        document.getElementById('his-adc').innerText = data.current_adc !== "" ? data.current_adc : '-';
+        document.getElementById('his-aac').innerText = data.current_aac !== "" ? data.current_aac : '-';
+        
+        document.getElementById('historyContainer').style.display = 'block';
+      } else {
+        document.getElementById('historyContainer').style.display = 'none';
+      }
     }
 
     function startScanner() {
@@ -271,8 +275,9 @@
         return;
       }
 
-      document.getElementById('submitBtn').disabled = true;
-      document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> กำลังบันทึก...';
+      let btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> กำลังบันทึก...';
 
       fetch(WEB_APP_URL, {
         method: 'POST',
@@ -284,14 +289,14 @@
         alert('บันทึกข้อมูลสำเร็จ!');
         document.getElementById('cpForm').reset();
         document.getElementById('historyContainer').style.display = 'none';
-        document.getElementById('submitBtn').disabled = false;
-        document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> บันทึกข้อมูล';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> บันทึกข้อมูล';
         startScanner();
       })
       .catch(error => {
         alert('เกิดข้อผิดพลาด: ' + error);
-        document.getElementById('submitBtn').disabled = false;
-        document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> บันทึกข้อมูล';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk me-2"></i> บันทึกข้อมูล';
       });
     }
   </script>
